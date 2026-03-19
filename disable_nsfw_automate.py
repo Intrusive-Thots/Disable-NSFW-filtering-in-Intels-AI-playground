@@ -45,7 +45,8 @@ def search_and_patch_backend(service_dir):
                     with open(filepath, 'r', encoding='utf-8') as f:
                         content = f.read()
 
-                    if 'nsfw' in content.lower() or 'vit-base-nsfw-detector' in content.lower():
+                    content_lower = content.lower()
+                    if 'nsfw' in content_lower or 'vit-base-nsfw-detector' in content_lower:
                         # We are looking for something like:
                         # def is_nsfw_image(...):
                         #     ...

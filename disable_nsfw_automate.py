@@ -37,6 +37,19 @@ def search_and_patch_backend(service_dir):
     # We'll use a safer approach: identify files with "nsfw" or "vit-base-nsfw-detector".
     # For matching the function body, we can just replace the specific `def is_nsfw_image` or `def nsfw_image` entirely
 
+    # Compile the regex pattern outside the loop for performance
+    # Match: def nsfw_image(...) or def is_nsfw_image(...)
+    # We capture the definition, then we consume all indented lines (including blank lines inside the block)
+    # We use a pattern that matches the function definition, then matches everything until the next non-whitespace or next definition.
+    # Using negative lookahead: match lines that either start with whitespace (indentation) or are empty
+    nsfw_pattern = re.compile(r'([ \t]*def (?:is_)?nsfw_image\s*\([^)]*\)\s*:\s*\n)(?:[ \t]+.*?\n|^\s*\n)*', flags=re.MULTILINE)
+
+    def nsfw_replacer(match):
+        def_line = match.group(1)
+        # the group 1 has trailing newlines.
+        # Just add our return False
+        return f"{def_line}    return False\n\n"
+
     for root, _, files in os.walk(service_dir):
         for file in files:
             if file.endswith('.py'):
@@ -54,19 +67,7 @@ def search_and_patch_backend(service_dir):
 
                         modified = False
 
-                        # Match: def nsfw_image(...) or def is_nsfw_image(...)
-                        # We capture the definition, then we consume all indented lines (including blank lines inside the block)
-                        # We use a pattern that matches the function definition, then matches everything until the next non-whitespace or next definition.
-                        # Using negative lookahead: match lines that either start with whitespace (indentation) or are empty
-                        pattern = r'([ \t]*def (?:is_)?nsfw_image\s*\([^)]*\)\s*:\s*\n)(?:[ \t]+.*?\n|^\s*\n)*'
-
-                        def replacer(match):
-                            def_line = match.group(1)
-                            # the group 1 has trailing newlines.
-                            # Just add our return False
-                            return f"{def_line}    return False\n\n"
-
-                        new_content, count = re.subn(pattern, replacer, content, flags=re.MULTILINE)
+                        new_content, count = nsfw_pattern.subn(nsfw_replacer, content)
 
                         if count > 0:
                             with open(filepath, 'w', encoding='utf-8') as f:
